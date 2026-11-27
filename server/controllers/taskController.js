@@ -14,6 +14,7 @@ const createTask = async (req, res) => {
       description,
       assignedTo,
       dueDate,
+      assignmentNotifiedAt: new Date(),
       priority
     });
     const populated = await task.populate('assignedTo', 'name email');
@@ -67,4 +68,41 @@ const updateTaskStatus = async (req, res) => {
   }
 };
 
-module.exports = { createTask, getAllTasks, getMyTasks, updateTaskStatus };
+const getAssignmentNotifications = async (req, res) => {
+  const assignments = {
+    assignedTo: req.user.id,
+    assignmentNotifiedAt: { $exists: true }
+  };
+  try {
+    const [items, unreadCount] = await Promise.all([
+      Task.find(assignments)
+        .select('title priority dueDate assignmentNotifiedAt assignmentReadAt')
+        .sort({ assignmentReadAt: 1, assignmentNotifiedAt: -1 })
+        .limit(20)
+        .lean(),
+      Task.countDocuments({ ...assignments, assignmentReadAt: null })
+    ]);
+    res.json({ items, unreadCount });
+  } catch (err) {
+    requestError(res, err);
+  }
+};
+
+const readAssignmentNotification = async (req, res) => {
+  try {
+    await Task.updateOne({
+      _id: req.params.id,
+      assignedTo: req.user.id,
+      assignmentNotifiedAt: { $exists: true },
+      assignmentReadAt: null
+    }, { $set: { assignmentReadAt: new Date() } }, { timestamps: false });
+    res.sendStatus(204);
+  } catch (err) {
+    requestError(res, err);
+  }
+};
+
+module.exports = {
+  createTask, getAllTasks, getMyTasks, updateTaskStatus,
+  getAssignmentNotifications, readAssignmentNotification
+};

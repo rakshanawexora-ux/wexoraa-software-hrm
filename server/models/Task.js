@@ -14,6 +14,8 @@ const taskSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  assignmentNotifiedAt: Date,
+  assignmentReadAt: Date,
   dueDate: {
     type: String,
     default: null
@@ -29,5 +31,10 @@ const taskSchema = new mongoose.Schema({
     default: 'medium'
   }
 }, { timestamps: true });
+
+taskSchema.index(
+  { assignedTo: 1, assignmentReadAt: 1, assignmentNotifiedAt: -1 },
+  { partialFilterExpression: { assignmentNotifiedAt: { $exists: true } } }
+);
 
 module.exports = mongoose.model('Task', taskSchema);

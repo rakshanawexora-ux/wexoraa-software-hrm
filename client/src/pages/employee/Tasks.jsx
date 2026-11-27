@@ -1,21 +1,34 @@
 import WorkspaceNav from '../../components/WorkspaceNav';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import API from '../../api/axios';
 
 const MyTasks = () => {
   const [tasks, setTasks] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [params] = useSearchParams();
+  const selectedId = params.get('task');
+  const selectedCard = useRef(null);
 
   const fetchTasks = async () => {
     try {
       const res = await API.get('/tasks/my');
       setTasks(res.data);
+      setLoaded(true);
     } catch (err) { console.log(err); }
   };
 
   useEffect(() => {
     const pending = setTimeout(fetchTasks, 0);
     return () => clearTimeout(pending);
-  }, []);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (selectedCard.current) {
+      selectedCard.current.focus({ preventScroll: true });
+      selectedCard.current.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedId, tasks]);
 
   const handleStatusUpdate = async (id, status) => {
     try {
@@ -47,6 +60,9 @@ const MyTasks = () => {
           <p style={{ fontSize: '13px', color: '#888', margin: 0 }}>{tasks.length} tasks assigned</p>
         </div>
 
+        {selectedId && loaded && !tasks.some((task) => task._id === selectedId) &&
+          <p role="status">This assignment is no longer available.</p>}
+
         {tasks.length === 0 ? (
           <div style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '3rem', textAlign: 'center', color: '#888' }}>
             No tasks assigned yet
@@ -54,7 +70,11 @@ const MyTasks = () => {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {tasks.map((task) => (
-              <div key={task._id} style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1rem' }}>
+              <div key={task._id}
+                ref={task._id === selectedId ? selectedCard : null}
+                tabIndex={task._id === selectedId ? -1 : undefined}
+                className={task._id === selectedId ? 'selected-assignment' : undefined}
+                style={{ background: 'white', borderRadius: '10px', border: '1px solid #eee', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                   <div>
                     <p style={{ fontWeight: '500', margin: '0 0 4px', fontSize: '15px' }}>{task.title}</p>

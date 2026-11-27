@@ -1,3 +1,4 @@
+import AssignmentNotifications from './AssignmentNotifications';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth';
 
@@ -34,6 +35,7 @@ export default function WorkspaceNav() {
           </NavLink>
         ))}
       </nav>
+      {!admin && <AssignmentNotifications />}
       <div className="workspace-account">
         <span className="avatar" aria-hidden="true">{user.name?.[0]?.toUpperCase()}</span>
         <div><strong>{user.name}</strong><small>{admin ? 'Administrator' : 'Employee'}</small></div>
