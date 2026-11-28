@@ -9,6 +9,12 @@ const { MONGO_URI, JWT_SECRET, CLIENT_ORIGIN = 'http://localhost:5173', PORT = 5
 app.disable('x-powered-by');
 app.use(cors({ origin: CLIENT_ORIGIN.split(',').map((origin) => origin.trim()) }));
 app.use(express.json());
+app.use('/api', (req, res, next) => {
+  connectDatabase().then(() => next(), (error) => {
+    console.error('HRMS database unavailable:', error.name);
+    res.status(503).json({ message: 'Database temporarily unavailable' });
+  });
+});
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/reports', require('./routes/reports'));
@@ -23,12 +29,25 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Server error' });
 });
 
-async function start() {
+let databaseReady;
+
+async function connectDatabase() {
   if (!MONGO_URI || !JWT_SECRET || JWT_SECRET.length < 32) {
     throw new Error('Set MONGO_URI and a JWT_SECRET of at least 32 characters.');
   }
-  await mongoose.connect(MONGO_URI);
-  await Promise.all(['User', 'Attendance', 'Report'].map((model) => mongoose.model(model).init()));
+  if (!databaseReady) {
+    databaseReady = mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 8000 })
+      .then(() => Promise.all(['User', 'Attendance', 'Report'].map((model) => mongoose.model(model).init())))
+      .catch((error) => {
+        databaseReady = undefined;
+        throw error;
+      });
+  }
+  return databaseReady;
+}
+
+async function start() {
+  await connectDatabase();
   app.listen(PORT, () => console.log('HRMS API listening on port ' + PORT));
 }
 
